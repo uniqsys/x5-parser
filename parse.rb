@@ -4,15 +4,25 @@ require 'bundler'
 Bundler.require
 
 def import_krasnoe
-  doc = Nokogiri::HTML(
-    HTTParty.get('http://krasnoeibeloe.ru/catalog/vino/?form_id=catalog_filter_form&arrFilter_121_MIN=84&arrFilter_121_MAX=18900&catalog_shop_enabled=Array&arrFilter_100_MIN=0.19&arrFilter_100_MAX=3&filter_search=&arrFilter_103_MIN=0&arrFilter_103_MAX=20&set_filter=Y&sort_by=name&page_count=1000&submit=%D0%9E%D0%9A')
+  index_doc = Nokogiri::HTML(
+    HTTParty.get('http://krasnoeibeloe.ru/catalog/', cookies: { BITRIX_SM_main_shop: 7535 })
   )
 
-  doc.search('.catalog_product_item').map { |pn|
-    Hashie::Mash.new(
-      name: pn.search('.product_item_name').first.text.strip.gsub(/\s+/, ' '),
-      price: pn.search('.i_price').text.to_f
+  categories = index_doc.search('.catalog_top_sections__item__pic a').map { |n|
+    n['href'].gsub('/catalog', '').gsub('/', '')
+  }
+
+  categories.flat_map { |category|
+    doc = Nokogiri::HTML(
+      HTTParty.get("http://krasnoeibeloe.ru/catalog/#{category}/?page_count=1000", cookies: { BITRIX_SM_main_shop: 7535 })
     )
+
+    doc.search('.catalog_product_item').map { |pn|
+      Hashie::Mash.new(
+        name: pn.search('.product_item_name').first.text.strip.gsub(/\s+/, ' '),
+        price: pn.search('.i_price').text.to_f
+      )
+    }
   }
 end
 
